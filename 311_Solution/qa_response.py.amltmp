@@ -1,0 +1,71 @@
+import json
+
+class qa_response_structure(object):
+    def __init__(self):
+        self.open_greeting = {"value": False, "conf": 0}
+        self.open_language =  {"value": False, "conf": 0}
+        self.probing_questions =  {"value": False, "conf": 0}
+        self.protocol_hold =  {"value": False, "conf": 0}
+        self.protocol_transfer =  {"value": False, "conf": 0}
+        self.protocol_mfippa =  {"value": False, "conf": 0}
+        self.protocol_councellor_checkbox =  {"value": False, "conf": 0}
+        self.resolve_accurate_info =  {"value": False, "conf": 0}
+        self.resolve_all_options =  {"value": False, "conf": 0}
+        self.serv_request_open =  {"value": False, "conf": 0}
+        self.serv_request_all_info =  {"value": False, "conf": 0}
+        self.serv_request_website =  {"value": False, "conf": 0}
+        self.serv_request_number =  {"value": False, "conf": 0}
+        self.confirm_outcome_service_level =  {"value": False, "conf": 0}
+        self.confirm_outcome_communicate =  {"value": False, "conf": 0}
+        self.close_final_assistance =  {"value": False, "conf": 0}
+        self.close_friendly =  {"value": False, "conf": 0}
+        self.prof_respect_willing_to_help =  {"value": False, "conf": 0}
+        self.prof_respect_client_respect =  {"value": False, "conf": 0}
+        self.prof_respect_positive_city =  {"value": False, "conf": 0}
+        self.prof_respect_polite =  {"value": False, "conf": 0}
+        self.prof_respect_active_listening =  {"value": False, "conf": 0}
+
+def convert_response_to_json(response):
+    return json.dumps(
+        {
+            '1.0': {
+                '1.1': response.open_greeting, 
+                '1.2': response.open_language
+                },
+            '2.0': {
+                '2.1': response.probing_questions
+                },
+            '3.0': {
+                '3.1': response.protocol_hold, 
+                '3.2': response.protocol_transfer,
+                '3.3': response.protocol_mfippa,
+                '3.4': response.protocol_councellor_checkbox
+                },
+            '4.0': {
+                '4.1': response.resolve_accurate_info, 
+                '4.2': response.resolve_all_options
+                },
+            '5.0': {
+                '5.1': response.serv_request_open,
+                '5.2': response.serv_request_all_info,
+                '5.3': response.serv_request_website,
+                '5.4': response.serv_request_number
+                },
+            '6.0': {
+                '6.1': response.confirm_outcome_service_level,
+                '6.2': response.confirm_outcome_communicate
+                },
+            '7.0': {
+                '7.1': response.close_final_assistance,
+                '7.2': response.close_friendly
+                },
+            '8.0': {
+                '8.1': response.prof_respect_willing_to_help,
+                '8.2': response.prof_respect_client_respect,
+                '8.3': response.prof_respect_positive_city,
+                '8.4': response.prof_respect_polite,
+                '8.5': response.prof_respect_active_listening
+                }
+        }
+    )
+

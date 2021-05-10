@@ -1,0 +1,147 @@
+import os
+import pickle
+import numpy as np
+import pandas as pd
+from datetime import datetime
+from gensim.corpora import Dictionary
+from gensim.models import LsiModel, TfidfModel
+from preprocess_text import clean_text, create_trigram_corpus
+from sklearn.cluster import AgglomerativeClustering as aggcluster
+
+pd.options.mode.chained_assignment = None
+
+class lsi_model_req(object):
+    def __init__(self, dictionary, tfidf_matrix, lsi_base_corpus):
+        self.dictionary = dictionary
+        self.tfidf_matrix = tfidf_matrix
+        self.lsi_base_corpus = lsi_base_corpus
+
+def status_message(imsg):
+    s = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    s = s[:-4]
+    timestamp = '[' + s + ']'
+    print(timestamp + ' ' + imsg)
+
+##########################################
+# MODEL TRAINING
+##########################################
+
+#########################
+# Take Sample Topic Sentences
+#########################
+
+#########################
+# GREETING MODEL
+#########################
+
+
+def train_lsi_cluster_model(df, text_column, num_topics, write_model = True, custom_folder_name = None):
+    #########################
+    # Train LSI Model on Topic
+    #########################
+    status_message("---- Training LSI Model")
+    text_df = clean_text(df, text_column)
+    ## CREATING CORPUS
+    initial_corpus = text_df['clean_text'].apply(lambda x: x.split(' ')).values
+    trigram_corpus = create_trigram_corpus(initial_corpus)
+
+    dictionary = Dictionary(trigram_corpus)
+    corpus = [dictionary.doc2bow(text) for text in trigram_corpus]
+
+    ## Generate TFIDF Matrix
+    tfidf = TfidfModel(corpus)
+    corpus_modelled = tfidf[corpus]
+
+    ## LSI Model
+    lsi = LsiModel(corpus_modelled, id2word=dictionary, num_topics=num_topics)
+    lsi_corpus = lsi[corpus_modelled]
+    status_message("---- Trained LSI Model")
+
+    #########################
+    # Map them to LSI Space
+    #########################
+    status_message("---- Mapping Text to LSI Space")
+    test_text_df = text_df
+    test_text_df['test_initial_corpus'] = test_text_df['clean_text'].apply(lambda x: x.split(' ')).values
+    test_text_df['test_trigram_corpus'] = test_text_df['test_initial_corpus'].apply(lambda x: create_trigram_corpus(x))
+    test_text_df['test_final_corpus'] = test_text_df['test_trigram_corpus'].apply(lambda x: dictionary.doc2bow(x))
+    test_text_df['lsi_transform'] = test_text_df['test_final_corpus'].apply(lambda x: lsi[tfidf[x]])
+    test_text_df = test_text_df[test_text_df['lsi_transform'].apply(lambda x: len(x) == num_topics)]
+
+    status_message("---- LSI Transform Complete")
+
+    #########################
+    # Perform Hierarchical Clustering such that 95% of Vectors are within a "Major" Cluster. Discard Leaf Vectors (ones outside of vectors)
+    #########################
+    status_message("---- Clustering Vectors")
+
+    # Number of Vectors in Cluster such that it is considered a "Major Group"
+    major_group_total = len(test_text_df) * 0.05
+    test_text_df['lsi_transform_values'] = test_text_df['lsi_transform'].apply(lambda x: np.array([i[1] for i in x]))
+
+    distance_threshold = 0
+    leaf_count = len(test_text_df)
+    old_leaf_count = 0
+    old_num_clusters = 0
+    same_iteration_count = 0
+
+
+    while leaf_count > 0.05*len(test_text_df) and same_iteration_count <= 5:
+        if leaf_count / len(test_text_df) > 0.1:
+            distance_threshold += 1
+        elif leaf_count / len(test_text_df) > 0.08:
+            distance_threshold += 0.5
+        else:
+            distance_threshold += 0.1
+        status_message("Testing Distance Threshold: {:.1f}".format(distance_threshold))
+        aggtest = aggcluster(distance_threshold = distance_threshold, n_clusters = None)
+        test_text_df['agg_result'] = aggtest.fit_predict(test_text_df['lsi_transform_values'].tolist())
+        status_message("Number of Clusters: {}".format(test_text_df['agg_result'].max() + 1))
+        agg_result_count = test_text_df.groupby('agg_result').count()['lsi_transform_values']
+        leaf_count = agg_result_count[agg_result_count < major_group_total].sum()
+        if old_leaf_count == leaf_count and old_num_clusters == test_text_df['agg_result'].max() + 1:
+            same_iteration_count += 1
+        else:
+            same_iteration_count = 0
+        old_leaf_count = leaf_count
+        old_num_clusters = test_text_df['agg_result'].max() + 1
+        status_message("Percentage of Leafs: {}".format(leaf_count / len(test_text_df)))
+        status_message("Same Iteration Count: {}".format(same_iteration_count))
+        print("")
+
+    status_message("Using Last Result. Number of Clusters: {}".format(len(agg_result_count)))
+    status_message("Cluster Distribution:")
+    print(agg_result_count)
+    
+    final_cluster_vectors = []
+    for group in test_text_df['agg_result'].unique():
+        final_cluster_vectors.append(np.mean(test_text_df[test_text_df['agg_result'] == group]['lsi_transform_values'], axis=0))
+
+    cluster_vectors_df = pd.DataFrame(final_cluster_vectors, index = ["train_" + str(i) for i in pd.DataFrame(final_cluster_vectors).index])
+    if write_model:
+        path = "./lsi_model/LSI_Clustering_Approach/"
+        count = 0
+        if custom_folder_name == None:
+            folder_name = "cluster_model"
+            while folder_name in os.listdir(path):
+                count += 1
+                folder_name = folder_name + str(count)
+        else:
+            while custom_folder_name in os.listdir(path):
+                count += 1
+                custom_folder_name = custom_folder_name + str(count)
+            if count > 0:
+                print("Folder Name Already Exists! Printing Folder as with name: {}".format(custom_folder_name))
+            else:
+                print("Printing Model using the following Path: {}".format(path + custom_folder_name))
+            folder_name = custom_folder_name
+        os.mkdir(path + folder_name)
+        cluster_vectors_df.to_csv(path + folder_name + "/cluster_vectors_df.csv")
+        test_text_df[['clean_text', 'agg_result']].to_csv(path + folder_name + "/cluster_text_df.csv", index=False)
+        lsi.save(path + folder_name + "/lsi_model.model")
+        model_requisites = lsi_model_req(dictionary, tfidf, lsi_corpus)
+        with open(path + folder_name + "/lsi_model_req.pk1", "wb") as output:
+            pickle.dump(model_requisites, output, pickle.HIGHEST_PROTOCOL)
+
+    return cluster_vectors_df, test_text_df[['clean_text', 'agg_result']], dictionary, tfidf, lsi
+

@@ -1,0 +1,34 @@
+{
+  "successfulTranscriptionsCount": 7,
+  "failedTranscriptionsCount": 0,
+  "details": [
+    {
+      "source": "https://msa311stgz7qrruujufqzq.blob.core.windows.net/input-audio/2436462_UCMAVoice_2020100916440575.mp3?sv=2020-02-10&spr=https&st=2021-03-19T21%3A37%3A54Z&se=2021-03-20T05%3A37%3A54Z&sr=c&sp=rl&sig=YuqeS%2B047q6NHqdaYU5QLE8OFN4Ajj2HDKjwyaTjD7Y%3D",
+      "status": "Succeeded"
+    },
+    {
+      "source": "https://msa311stgz7qrruujufqzq.blob.core.windows.net/input-audio/2506363_UCMAVoice_2020102817165384.mp3?sv=2020-02-10&spr=https&st=2021-03-19T21%3A37%3A54Z&se=2021-03-20T05%3A37%3A54Z&sr=c&sp=rl&sig=YuqeS%2B047q6NHqdaYU5QLE8OFN4Ajj2HDKjwyaTjD7Y%3D",
+      "status": "Succeeded"
+    },
+    {
+      "source": "https://msa311stgz7qrruujufqzq.blob.core.windows.net/input-audio/2506404_UCMAVoice_2020102817311671.mp3?sv=2020-02-10&spr=https&st=2021-03-19T21%3A37%3A54Z&se=2021-03-20T05%3A37%3A54Z&sr=c&sp=rl&sig=YuqeS%2B047q6NHqdaYU5QLE8OFN4Ajj2HDKjwyaTjD7Y%3D",
+      "status": "Succeeded"
+    },
+    {
+      "source": "https://msa311stgz7qrruujufqzq.blob.core.windows.net/input-audio/2738273_UCMAVoice_2021010221495195.mp3?sv=2020-02-10&spr=https&st=2021-03-19T21%3A37%3A54Z&se=2021-03-20T05%3A37%3A54Z&sr=c&sp=rl&sig=YuqeS%2B047q6NHqdaYU5QLE8OFN4Ajj2HDKjwyaTjD7Y%3D",
+      "status": "Succeeded"
+    },
+    {
+      "source": "https://msa311stgz7qrruujufqzq.blob.core.windows.net/input-audio/2741605_UCMAVoice_2021010411100965.mp3?sv=2020-02-10&spr=https&st=2021-03-19T21%3A37%3A54Z&se=2021-03-20T05%3A37%3A54Z&sr=c&sp=rl&sig=YuqeS%2B047q6NHqdaYU5QLE8OFN4Ajj2HDKjwyaTjD7Y%3D",
+      "status": "Succeeded"
+    },
+    {
+      "source": "https://msa311stgz7qrruujufqzq.blob.core.windows.net/input-audio/2741615_UCMAVoice_2021010411101798.mp3?sv=2020-02-10&spr=https&st=2021-03-19T21%3A37%3A54Z&se=2021-03-20T05%3A37%3A54Z&sr=c&sp=rl&sig=YuqeS%2B047q6NHqdaYU5QLE8OFN4Ajj2HDKjwyaTjD7Y%3D",
+      "status": "Succeeded"
+    },
+    {
+      "source": "https://msa311stgz7qrruujufqzq.blob.core.windows.net/input-audio/2741808_UCMAVoice_2021010411212776.mp3?sv=2020-02-10&spr=https&st=2021-03-19T21%3A37%3A54Z&se=2021-03-20T05%3A37%3A54Z&sr=c&sp=rl&sig=YuqeS%2B047q6NHqdaYU5QLE8OFN4Ajj2HDKjwyaTjD7Y%3D",
+      "status": "Succeeded"
+    }
+  ]
+}

@@ -1,0 +1,154 @@
+import numpy as np
+import pandas as pd
+from datetime import datetime
+from gensim.corpora import Dictionary
+from gensim.models import LsiModel, TfidfModel
+from sklearn.metrics.pairwise import cosine_similarity
+from preprocess_text import clean_text, create_trigram_corpus
+from sklearn.cluster import AgglomerativeClustering as aggcluster
+
+pd.options.mode.chained_assignment = None
+
+def status_message(imsg):
+    s = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    s = s[:-4]
+    timestamp = '[' + s + ']'
+    print(timestamp + ' ' + imsg)
+
+##########################################
+##########################################
+## GREETING
+##########################################
+##########################################
+
+
+##########################################
+# MODEL TRAINING
+##########################################
+
+#########################
+# Take Sample Topic ('Greeting') Sentences
+#########################
+
+# Obtain Greeting Sentences
+greeting_df = pd.read_csv("./luis_sentences/luis_sentences_greeting/first_sentence.csv", header=None)
+greeting_df = greeting_df.fillna('')
+status_message("---- Ingested Data")
+
+def train_lsi_cluster_model(df, text_column, write_data = True, custom_csv_name = None):
+    #########################
+    # Train LSI Model on Topic
+    #########################
+
+    num_topics = 3
+
+    status_message("---- Training LSI Model")
+    text_df = clean_text(greeting_df, 0)
+    ## CREATING CORPUS
+    initial_corpus = text_df['clean_text'].apply(lambda x: x.split(' ')).values
+    trigram_corpus = create_trigram_corpus(initial_corpus)
+
+    dictionary = Dictionary(trigram_corpus)
+    corpus = [dictionary.doc2bow(text) for text in trigram_corpus]
+
+    ## Generate TFIDF Matrix
+    tfidf = TfidfModel(corpus)
+    corpus_modelled = tfidf[corpus]
+
+    ## LSI Model
+    lsi = LsiModel(corpus_modelled, id2word=dictionary, num_topics=num_topics)
+    # lsi_corpus = lsi[corpus_modelled]
+    status_message("---- Trained LSI Model")
+
+    #########################
+    # Map them to LSI Space
+    #########################
+    status_message("---- Mapping Text to LSI Space")
+    test_text_df = text_df
+    test_text_df['test_initial_corpus'] = test_text_df['clean_text'].apply(lambda x: x.split(' ')).values
+    test_text_df['test_trigram_corpus'] = test_text_df['test_initial_corpus'].apply(lambda x: create_trigram_corpus(x))
+    test_text_df['test_final_corpus'] = test_text_df['test_trigram_corpus'].apply(lambda x: dictionary.doc2bow(x))
+    test_text_df['lsi_transform'] = test_text_df['test_final_corpus'].apply(lambda x: lsi[tfidf[x]])
+    test_text_df = test_text_df[test_text_df['lsi_transform'].apply(lambda x: len(x) == num_topics)]
+
+    status_message("---- LSI Transform Complete")
+
+    #########################
+    # Perform Hierarchical Clustering such that 95% of Vectors are within a "Major" Cluster. Discard Leaf Vectors (ones outside of vectors)
+    #########################
+    status_message("---- Clustering Vectors")
+
+    # Number of Vectors in Cluster such that it is considered a "Major Group"
+    major_group_total = len(test_text_df) * 0.05
+    test_text_df['lsi_transform_values'] = test_text_df['lsi_transform'].apply(lambda x: np.array([i[1] for i in x]))
+
+    distance_threshold = 0
+    leaf_count = len(test_text_df)
+
+    while leaf_count > 0.05*len(test_text_df):
+        if leaf_count / len(test_text_df) > 0.1:
+            distance_threshold += 1
+        elif leaf_count / len(test_text_df) > 0.08:
+            distance_threshold += 0.5
+        else:
+            distance_threshold += 0.1
+        status_message("Testing Distance Threshold: {:.1f}".format(distance_threshold))
+        aggtest = aggcluster(distance_threshold = distance_threshold, n_clusters = None)
+        test_text_df['agg_result'] = aggtest.fit_predict(test_text_df['lsi_transform_values'].tolist())
+        status_message("Number of Clusters: {}".format(test_text_df['agg_result'].max() + 1))
+        agg_result_count = test_text_df.groupby('agg_result').count()['lsi_transform_values']
+        leaf_count = agg_result_count[agg_result_count < major_group_total].sum()
+        status_message("Percentage of Leafs: {}".format(leaf_count / len(test_text_df)))
+        print("")
+
+    status_message("Using Last Result. Number of Clusters: {}".format(len(agg_result_count)))
+    status_message("Cluster Distribution:")
+    print(agg_result_count)
+    
+    final_cluster_vectors = []
+    for group in test_text_df['agg_result'].unique():
+        final_cluster_vectors.append(np.mean(test_text_df[test_text_df['agg_result'] == group]['lsi_transform_values'], axis=0))
+
+    cluster_vectors_df = pd.DataFrame(final_cluster_vectors, index = ["train_" + str(i) for i in pd.DataFrame(final_cluster_vectors).index])
+    if write_data:
+        path = "./lsi_model/LSI_Clustering_Approach/"
+        count = 0
+        if custom_csv_name == None:
+            csv_name = "cluster_model"
+            while csv_name + ".csv" in os.listdir(path):
+                count += 1
+                csv_name = csv_name + str(count)
+            csv_name += ".csv"
+        else:
+            while custom_csv_name in os.listdir(path):
+                count += 1
+                custom_csv_name = custom_csv_name.split(".")[0] + str(count) + ".csv"
+            if count > 0:
+                print("File Name Already Exists! Printing CSV as with name: {}".format(custom_csv_name))
+            else:
+                print("Printing CSV as {}".format(custom_csv_name))
+            csv_name = custom_csv_name
+        cluster_vectors_df.to_csv(path + csv_name
+    return cluster_vectors_df
+#########################
+# Calculate Distance (Cosine Similarity) Between New Vector and Each of those Found Major Clusters
+#########################
+
+"""
+test_sentence = "hello this is connor speaking from the city of ottawa how can I help you"
+test_initial_corpus = test_sentence.split(' ')
+test_trigram_corpus = create_trigram_corpus(test_initial_corpus)
+test_corpus = dictionary.doc2bow(test_trigram_corpus)
+test_corpus_tfidf = tfidf[test_corpus]
+test_corpus_lsi = lsi[test_corpus_tfidf]
+test_lsi_comparison = np.array([i[1] for i in test_corpus_lsi])
+test_lsi_comparison_df = pd.DataFrame([test_lsi_comparison], index = ["test"])
+test_clusters_df = cluster_vectors_df.append(test_lsi_comparison_df)
+similarity = cosine_similarity(test_clusters_df)
+pd.DataFrame(similarity, test_clusters_df.index, index = test_clusters_df.index)
+"""
+#########################
+# Aggregate Distance Metrics using Weights (Based on Size of Clusters). Use as "Correlation Confidence Measure"
+#########################
+# MAYBE NOT THIS STEP, MAYBE WE JUST USE THE HIGHEST CORRELATION AS CONFIDENCE
+

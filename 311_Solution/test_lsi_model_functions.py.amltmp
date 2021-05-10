@@ -1,0 +1,117 @@
+import os
+import time
+import pickle
+import pandas as pd
+from datetime import datetime
+from gensim.models import LsiModel
+from gensim.similarities import Similarity
+from utils.coo_311_utils import lsi_model_req, status_message
+from preprocess_text import clean_text, create_trigram_corpus
+
+
+def test_blob_subset(dictionary, tfidf, lsi, test_df, text_col):
+    # Choose Documents to Run Against
+    if test_df is None:
+        status_message("Unable to process. Please specific DataFrame with test blob transcription using the 'test_df' parameter")
+        return None
+    ## CLEAN TEXT
+    text_df = clean_text(test_df, text_col)
+    ## CREATING CORPUS
+    initial_corpus = text_df['clean_text'].apply(lambda x: x.split(' ')).values
+    trigram_corpus = create_trigram_corpus(initial_corpus)
+    corpus = [dictionary.doc2bow(text) for text in trigram_corpus]
+    corpus_modelled = tfidf[corpus]
+    lsi_corpus = lsi[corpus_modelled]
+    return lsi_corpus
+
+
+def remove_folder_contents(folder):
+    for filename in os.listdir(folder):
+        file_path = os.path.join(folder, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            status_message('Failed to delete %s. Reason: %s' % (file_path, e))
+
+
+# Previously test_LSI_model:
+def filter_on_q_LSI(q_list, model_folder_name, test_df, text_col, conf_thresh = 0, num_results=10, test_type = ''):
+    if type(q_list) is not list:
+        status_message("Test Failed. Please Pass Query as Type 'list'.")
+        return None
+    start_time_model = time.time()
+    #####################
+    # LOAD IN LSI MODEL
+    #####################
+    lsi = LsiModel.load("./lsi_model/" +  model_folder_name + "/lsi_model.model")
+    status_message("Imported {} Model in {:.2f} seconds".format(model_folder_name, time.time() - start_time_model))
+    start_time_req = time.time()
+    with open("./lsi_model/" + model_folder_name + "/lsi_model_req.pk1", "rb") as req_pic:
+        model_requisites = pickle.load(req_pic)
+    dictionary = model_requisites.dictionary
+    tfidf = model_requisites.tfidf_matrix
+    status_message("Imported {} Model Requisites in {:.2f} seconds".format(model_folder_name, time.time() - start_time_req))
+    #####################
+    # GATHER TEST CORPUS
+    #####################
+    ## Options for test_type: all_trained_blobs, blob_subset, raw_text 
+    corpus_lsi = test_blob_subset(dictionary, tfidf, lsi, test_df, text_col)
+    if corpus_lsi is None:
+        return None
+    #####################
+    # PREPARE TEST INPUT
+    #####################
+    status_message("Running LSI model...".format(len(q_list)))
+    results = []
+    for q in q_list:
+        # "Folding in new documents"
+        # status_message("Creating Test Corpus for Query: '{}'".format(q))
+        start_time_query = time.time()
+        text_df = clean_text(pd.DataFrame([q], columns = ["test_sentence"]), "test_sentence")
+        ## CREATING CORPUS
+        test_initial_corpus = text_df['clean_text'].apply(lambda x: x.split(' ')).values[0]
+        test_trigram_corpus = create_trigram_corpus(test_initial_corpus)
+        test_corpus = dictionary.doc2bow(test_trigram_corpus)
+        test_corpus_tfidf = tfidf[test_corpus]
+        # Map new documents into the latent semantic space
+        test_corpus_lsi = lsi[test_corpus_tfidf]
+        # Run a query to check simiilarity - scalable version
+        # status_message("Creating Similarity Matrix")
+        index = Similarity('./similarities/sims', corpus_lsi, num_features=200)
+        #####################
+        # TEST SIMILARITY AND PRINT RESULTS
+        #####################
+        if conf_thresh == 0:
+            # status_message("Printing Top {} Results".format(num_results))
+            # status_message([i[0] for i in sorted(enumerate(index[test_corpus_lsi][0]), key=lambda item: -item[1])[:num_results]])
+            # status_message("Returned List with {} Results".format(num_results))
+            results.append(sorted(enumerate(index[test_corpus_lsi][0]), key=lambda item: -item[1])[:num_results])
+        else:
+            similarity_results = index[test_corpus_lsi]
+            if len(similarity_results) == 1 and similarity_results[0] > 1:
+                similarity_results = similarity_results[0]
+            threshold_list = [i for i in enumerate(similarity_results) if i[1] > conf_thresh]
+            # status_message("Number of Results with Confidence over {}%: {}".format(conf_thresh*100, len(threshold_list)))
+            # status_message("Printing Top 10 Results such that the Correlation is OVER {}%".format(conf_thresh*100))
+            # status_message(sorted(threshold_list, key = lambda item: -item[1])[:10])
+            # status_message("Returned Threshold List")
+            results.append(sorted(threshold_list, key = lambda item: -item[1]))
+        remove_folder_contents('./similarities')
+    status_message("Query took {:.2f} seconds".format(time.time() - start_time_query))
+    return results
+
+# def write_threshold_csv(df, topic):
+#     df = df['phrase']
+#     write_folder =  "train_" + topic
+#     write_file = "luis_df_" + topic + ".csv"
+#     num_identify = 1
+#     while write_file in os.listdir('./training_sentences/' + write_folder):
+#         num_identify += 1
+#         write_file = "luis_df_" + topic + str(num_identify) + ".csv"
+#     if write_folder not in os.listdir("./training_sentences/"):
+#         os.mkdir("./training_sentences/" + write_folder)
+#     df.to_csv("./training_sentences/" + write_folder + "/" + write_file, index=False)
+

@@ -1,0 +1,27 @@
+class qa_response(object):
+    def __init__(self):
+        self.open_greeting = {"value": False, "conf": 0}
+        self.open_language =  {"value": False, "conf": 0}
+        self.probing_questions =  {"value": False, "conf": 0}
+        self.protocol_hold =  {"value": False, "conf": 0}
+        self.protocol_transfer =  {"value": False, "conf": 0}
+        self.protocol_mfippa =  {"value": False, "conf": 0}
+        self.protocol_councellor_checkbox =  {"value": False, "conf": 0}
+        self.resolve_accurate_info =  {"value": False, "conf": 0}
+        self.resolve_all_options =  {"value": False, "conf": 0}
+        self.serv_request_open =  {"value": False, "conf": 0}
+        self.serv_request_all_info =  {"value": False, "conf": 0}
+        self.serv_request_website =  {"value": False, "conf": 0}
+        self.serv_request_number =  {"value": False, "conf": 0}
+        self.confirm_outcome_service_level =  {"value": False, "conf": 0}
+        self.confirm_outcome_communicate =  {"value": False, "conf": 0}
+        self.close_final_assistance =  {"value": False, "conf": 0}
+        self.close_friendly =  {"value": False, "conf": 0}
+        self.prof_respect_willing_to_help =  {"value": False, "conf": 0}
+        self.prof_respect_client_respect =  {"value": False, "conf": 0}
+        self.prof_respect_positive_city =  {"value": False, "conf": 0}
+        self.prof_respect_polite =  {"value": False, "conf": 0}
+        self.prof_respect_active_listening =  {"value": False, "conf": 0}
+
+
+

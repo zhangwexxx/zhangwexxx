@@ -1,0 +1,7 @@
+import pandas as pd
+from utils.coo_311_utils import lsi_model_req, status_message, find_qna_pair_from_display, acquire_final_qna
+
+full_df = pd.read_csv('./transcription_csv/full_transcription_df.csv')
+full_df['fullPhraseLex'] = full_df['fullPhraseLex'].fillna('')
+full_df['fullPhraseDisplay'] = full_df['fullPhraseDisplay'].fillna('')
+

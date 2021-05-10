@@ -1,0 +1,8 @@
+from datetime import datetime
+
+def status_message(imsg):
+    s = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    s = s[:-4]
+    timestamp = '[' + s + ']'
+    print(timestamp + ' ' + imsg)
+

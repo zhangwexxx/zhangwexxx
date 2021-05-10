@@ -1,0 +1,19 @@
+from azure.storage.blob import ContainerClient
+# from azureml.core import Workspace, Datastore, Dataset
+
+# def copy_to_processing_container(conn_str, input_container_name, output_container_name, blob_name):
+#     src_blob = BlobClient.from_connection_string(conn_str=conn_str, container_name=input_container_name, blob_name=blob_name)
+#     dst_blob = BlobClient.from_connection_string(conn_str=conn_str, container_name=output_container_name, blob_name=blob_name)
+#     dst_blob.upload_blob(src_blob.download_blob().readall(), overwrite=True)
+
+
+def gather_input(blob_keys, speech_keys):
+    input_container_name = 'input-audio'
+    output_container_name = 'transcription-audio'
+    connection_string = blob_keys['storage_connection_string']
+    # Gather all input audio blobs
+    input_audio_container = ContainerClient.from_connection_string(conn_str = connection_string, container_name = )
+
+    # for audio_blob_dict in list(input_audio_container.list_blobs())[:1]:
+    #     audio_blob = BlobClient.from_connection_string(conn_str=connection_string, container_name='input-audio', blob_name=audio_blob_dict['name'])
+

@@ -1,0 +1,112 @@
+import os
+import pickle
+import numpy as np
+import pandas as pd
+from datetime import datetime
+from gensim.models import LsiModel
+from sklearn.metrics.pairwise import cosine_similarity
+from preprocess_text import clean_text, create_trigram_corpus
+from train_LSI_clustering_approach import train_lsi_cluster_model
+
+
+pd.options.mode.chained_assignment = None
+
+class lsi_model_req(object):
+    def __init__(self, dictionary, tfidf_matrix, lsi_base_corpus):
+        self.dictionary = dictionary
+        self.tfidf_matrix = tfidf_matrix
+        self.lsi_base_corpus = lsi_base_corpus
+
+def status_message(imsg):
+    s = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    s = s[:-4]
+    timestamp = '[' + s + ']'
+    print(timestamp + ' ' + imsg)
+
+
+def trim_test_set(df, trim_min_perc=0, trim_max_perc=1):
+    if trim_min_perc != 0 or trim_max_perc != 1:    
+        status_message("Trimming Testing Sentence Set")
+        # Index sentences by Blob
+        df['phraseIndexByBlob'] = df.groupby(['blobName']).cumcount() + 1
+        # trim_by_perc is True if want to trim by percentage
+        status_message("Keeping from {}% and {}% of sentences per Blob".format(trim_min_perc*100, trim_max_perc*100))
+        ## Percentage of Calls
+        blob_sentence_count = df.groupby('blobName').count()['lexical']
+        df['percent_cut'] = df[['blobName', 'phraseIndexByBlob']].apply(lambda x: 1 if (x[1] / blob_sentence_count[x[0]] >= trim_min_perc) and (x[1] / blob_sentence_count[x[0]] <= trim_max_perc) else 0, axis=1)
+        return df[df['percent_cut'] == 1]
+    else:
+        status_message("No Request to Trim Sentence Set")
+        return df
+
+
+def lsi_model():
+    # IMPORT MODEL
+    model_base_path = "./lsi_model/LSI_Clustering_Approach/"
+    if model_folder_name in os.listdir(model_base_path):
+        status_message("Model Found. Importing Model from Folder '{}'".format(model_folder_name))
+        lsi = LsiModel.load(model_base_path +  model_folder_name + "/lsi_model.model")
+        with open(model_base_path + model_folder_name + "/lsi_model_req.pk1", "rb") as req_pic:
+            model_requisites = pickle.load(req_pic)
+        dictionary = model_requisites.dictionary
+        tfidf = model_requisites.tfidf_matrix
+        cluster_vectors_df = pd.read_csv(model_base_path + model_folder_name + "/cluster_vectors_df.csv", index_col = 'Unnamed: 0')
+        test_text_df = pd.read_csv(model_base_path + model_folder_name + "/cluster_text_df.csv")
+    else:
+        status_message("No Model Found in '{}'. Training Custom Model with Defined Parameters...".format(model_folder_name))
+        cluster_vectors_df, test_text_df, dictionary, tfidf, lsi = train_lsi_cluster_model(greeting_df, text_column, num_topics, write_model = write_new_model, custom_folder_name = model_folder_name)
+
+    status_message("Imported Model")
+
+    #########################
+    # Calculate Distance (Cosine Similarity) Between New Vector and Each of those Found Major Clusters
+    #########################
+
+    # Gather Weights:
+
+    test_sentence = "hi there connor speaking thank you for calling the city of ottawa how can i help you?"
+    test_initial_corpus = test_sentence.split(' ')
+    test_trigram_corpus = create_trigram_corpus(test_initial_corpus)
+    test_corpus = dictionary.doc2bow(test_trigram_corpus)
+    test_corpus_tfidf = tfidf[test_corpus]
+    test_corpus_lsi = lsi[test_corpus_tfidf]
+    test_lsi_comparison = np.array([i[1] for i in test_corpus_lsi])
+    test_lsi_comparison_df = pd.DataFrame([test_lsi_comparison], index = ["test"])
+    test_lsi_comparison_df.columns = cluster_vectors_df.columns
+    test_clusters_df = cluster_vectors_df.append(test_lsi_comparison_df)
+    similarity_mat = cosine_similarity(test_clusters_df)
+    similarity_row = pd.DataFrame(similarity_mat, columns = test_clusters_df.index, index = test_clusters_df.index).loc["test"]
+
+
+    #########################
+    # Aggregate Distance Metrics using Weights (Based on Size of Clusters). Use as "Correlation Confidence Measure"
+    #########################
+
+    weights_df = test_text_df.groupby('agg_result').count()['clean_text']
+    weights_df.index = cluster_vectors_df.index
+    weights_df = weights_df / sum(weights_df)
+    final_confidence_level = 0
+    for group in weights_df.index:
+        final_confidence_level += weights_df.loc[group] * similarity_row.loc[group]
+    print(similarity_row)
+    print(weights_df)
+    print("'{}' recognized as greeting with {} confidence".format(test_sentence, final_confidence_level))
+
+#####################
+# LOAD IN LSI MODEL
+#####################
+
+# TRAIN MODEL PARAMETERS IF NEEDED
+################# GREETING ####################
+# Obtain Greeting Sentences
+greeting_df = pd.read_csv("./luis_sentences/luis_sentences_greeting/first_sentence.csv", header=None)
+text_column = 0
+# Num Topics Decided Since There Seem to be 3 Defining Factors for Greetings: "Thank you", "City of Ottawa", "How Can I Help"
+num_topics = 3
+greeting_df = greeting_df.fillna('')
+status_message("---- Ingested Data")
+write_new_model = True
+###############################################
+
+# DEFINE MODEL LOCATION
+model_folder_name = "greeting_model"

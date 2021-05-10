@@ -1,0 +1,41 @@
+import pandas as pd
+from test_LSI_model_functions import filter_on_q_LSI
+from utils.coo_311_utils import lsi_model_req, status_message
+
+def recognize_garbage_call_lsi_response(test_df, text_col, conf_thresh = 0.5):
+    #############################
+    # SET PARAMETERS
+    #############################
+    # Get Sentences that match query
+    model_name = 'LSImodel_document_topic'
+    query = ['garbage',
+        'green bin',
+        'blue bin',
+        'garbage bags',
+        'recycle'
+        ]
+    # Get LSI Result
+    thresh_list = filter_on_q_LSI(
+        query, 
+        model_name,
+        test_df = test_df,
+        text_col = text_col,
+        conf_thresh = conf_thresh, 
+        )
+    if sum([len(i) > 0 for i in thresh_list]):
+        status_message("Garbage Relation Found with LSI Model.")
+        corr_sentences = sum([[j[0] for j in i] for i in thresh_list], [])
+        corr_perc = sum([[j[1] for j in i] for i in thresh_list], [])
+        lsi_result = {}
+        for i in range(len(corr_sentences)):
+            if corr_sentences[i] in lsi_result.keys():
+                if corr_perc[i] > lsi_result[corr_sentences[i]]:
+                    lsi_result[corr_sentences[i]] = corr_perc[i]
+            else:
+                lsi_result[corr_sentences[i]] = corr_perc[i]
+        return lsi_result
+    else:
+        status_message("No Garbage Intent Found with LSI Model.")
+        return {}
+
+
